@@ -86,3 +86,7 @@ Tested on Firefox 157.0.1 on macOS, with the Nova UI (the default) in light, dar
 and system themes: pinned tabs, overflow scrolling and tab groups. Not checked
 yet: hover and inactive-window colours (written but not screenshotted),
 right-to-left layouts, compact/touch density, split view, and Linux/Windows.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
