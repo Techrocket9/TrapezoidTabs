@@ -1,0 +1,257 @@
+/*
+ * TrapezoidTabs: Chrome 68-style tabs for Firefox.
+ *
+ * The tab, new-tab-button and close-button geometry is lifted from Chromium's
+ * M68 branch (branch-heads/3440): chrome/browser/ui/views/tabs/tab.cc
+ * (GetBorderPath / GetInteriorPath), new_tab_button.cc and
+ * chrome/browser/ui/layout_constants.cc. At 1x the tab is 29px tall, each
+ * endcap is 15.5px wide with 2px curves top and bottom, adjacent tabs overlap
+ * by 16px, and a full-width tab is 193px plus the overlap.
+ *
+ * Only the horizontal tab strip is touched; vertical tabs keep Firefox's look.
+ *
+ * Every declaration is !important because userChrome.css is a user sheet, and
+ * normal user declarations lose to Firefox's own (author) styles.
+ */
+
+:root {
+  /* Tweakables */
+  --ct-tab-height: 29px;      /* Chrome 68: 29 */
+  --ct-strip-top: 8px;        /* gap between the top of the tab strip and the tabs */
+  --ct-overlap: 16px;         /* Chrome 68: 16 */
+  --ct-tab-max-width: 209px;  /* Chrome 68: 193 + overlap */
+  --ct-tab-min-width: 92px;   /* Firefox's 76px plus room for the endcaps */
+
+  /* How much of the toolbar colour each state lays over the window frame.
+     The selected tab gets all of it, so it matches the toolbar exactly. */
+  --ct-tint-selected: var(--toolbar-background-color);
+  --ct-tint: color-mix(in srgb, var(--toolbar-background-color) 50%, transparent);
+  --ct-tint-hover: color-mix(in srgb, var(--toolbar-background-color) 80%, transparent);
+  /* Chrome drew a 25% black stroke; currentColor keeps it legible on dark themes. */
+  --ct-stroke: color-mix(in srgb, currentColor 28%, transparent);
+
+  /* Endcap masks: 17px wide slices of Chrome's 29px-tall tab path.
+     "fill" is the interior, "ring" is the 1px stroke around it. */
+  --ct-left-fill: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='17' height='29' viewBox='0 0 17 29' preserveAspectRatio='none'><path d='M17 1H16.5C15.75 1 14.875 1.5 14.5 2.5L3 27.5C2.625 28.5 1.75 29 1 29H17Z'/></svg>");
+  --ct-right-fill: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='17' height='29' viewBox='0 0 17 29' preserveAspectRatio='none'><path transform='matrix(-1 0 0 1 17 0)' d='M17 1H16.5C15.75 1 14.875 1.5 14.5 2.5L3 27.5C2.625 28.5 1.75 29 1 29H17Z'/></svg>");
+  --ct-left-ring: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='17' height='29' viewBox='0 0 17 29' preserveAspectRatio='none'><path fill-rule='evenodd' d='M0 29V28C.75 28 1.625 27.5 2 26.5L13.5 1.5C13.875 .5 14.75 0 15.5 0H17V29ZM17 1H16.5C15.75 1 14.875 1.5 14.5 2.5L3 27.5C2.625 28.5 1.75 29 1 29H17Z'/></svg>");
+  --ct-right-ring: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='17' height='29' viewBox='0 0 17 29' preserveAspectRatio='none'><path transform='matrix(-1 0 0 1 17 0)' fill-rule='evenodd' d='M0 29V28C.75 28 1.625 27.5 2 26.5L13.5 1.5C13.875 .5 14.75 0 15.5 0H17V29ZM17 1H16.5C15.75 1 14.875 1.5 14.5 2.5L3 27.5C2.625 28.5 1.75 29 1 29H17Z'/></svg>");
+
+  /* The same left endcaps minus the area the tab to the left covers (that
+     tab's right endcap, 16px over). Chrome painted inactive tabs right to
+     left, so each one sat on top of its right-hand neighbour; leaving these
+     pixels to the neighbour gets the same stacking without z-index games. */
+  --ct-left-fill-behind: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='17' height='29' viewBox='0 0 17 29' preserveAspectRatio='none'><mask id='m'><rect width='17' height='29' fill='%23fff'/><path d='M0 0H.5C1.25 0 2.125.5 2.5 1.5L14 26.5C14.375 27.5 15.25 28 16 28V29H0Z'/></mask><path mask='url(%23m)' d='M17 1H16.5C15.75 1 14.875 1.5 14.5 2.5L3 27.5C2.625 28.5 1.75 29 1 29H17Z'/></svg>");
+  --ct-left-ring-behind: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='17' height='29' viewBox='0 0 17 29' preserveAspectRatio='none'><mask id='m'><rect width='17' height='29' fill='%23fff'/><path d='M0 0H.5C1.25 0 2.125.5 2.5 1.5L14 26.5C14.375 27.5 15.25 28 16 28V29H0Z'/></mask><path mask='url(%23m)' fill-rule='evenodd' d='M0 29V28C.75 28 1.625 27.5 2 26.5L13.5 1.5C13.875 .5 14.75 0 15.5 0H17V29ZM17 1H16.5C15.75 1 14.875 1.5 14.5 2.5L3 27.5C2.625 28.5 1.75 29 1 29H17Z'/></svg>");
+
+  /* New tab button: Chrome 68's 36x18 slanted button (NewTabButton::GetNonTouchOptimizedButtonPath). */
+  --ct-newtab-fill: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='18' viewBox='0 0 36 18'><path d='M9.75 16C9 16 8.125 15.5 7.75 14.5L2 2C2 1.5 2.25 1 3 1H26.25C27 1 27.875 1.5 28.25 2.5L34 15C34 15.5 33.75 16 33 16Z'/></svg>");
+  --ct-newtab-ring: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='18' viewBox='0 0 36 18'><path fill-rule='evenodd' d='M8.75 17C8 17 7.125 16.5 6.75 15.5L1 3C.5 1.875 1.5 0 2 0H27.25C28 0 28.875 .5 29.25 1.5L35 14C35.5 15.125 34.5 17 34 17ZM9.75 16C9 16 8.125 15.5 7.75 14.5L2 2C2 1.5 2.25 1 3 1H26.25C27 1 27.875 1.5 28.25 2.5L34 15C34 15.5 33.75 16 33 16Z'/></svg>");
+}
+
+/* ---- Strip ---------------------------------------------------------------- */
+
+#tabbrowser-tabs[orient="horizontal"] {
+  --tab-min-height: var(--ct-tab-height) !important;
+  --tab-min-width: var(--ct-tab-min-width) !important;
+  --tab-max-width: var(--ct-tab-max-width) !important;
+  --tabstrip-min-height: calc(var(--ct-tab-height) + var(--ct-strip-top)) !important;
+}
+
+/* The toolbar's top stroke runs along the bottom of the strip. Inactive tabs
+   draw their own copy (see the ring below); the selected tab covers it. */
+#TabsToolbar:not([collapsed]) {
+  background-image: linear-gradient(to top, var(--ct-stroke) 1px, transparent 1px) !important;
+}
+#nav-bar {
+  --tabs-navbar-separator-style: none !important;
+}
+
+/* ---- Tabs ----------------------------------------------------------------- */
+
+#tabbrowser-tabs[orient="horizontal"] .tabbrowser-tab {
+  --ct-lf: var(--ct-left-fill-behind);
+  --ct-lr: var(--ct-left-ring-behind);
+  --ct-line-start: var(--ct-overlap);
+  padding: 0 !important;
+  margin-inline-end: calc(-1 * var(--ct-overlap)) !important;
+  align-items: flex-end !important;
+}
+
+/* Full endcaps for the selected tab, which is drawn on top of both
+   neighbours, and for tabs with no tab to their left. */
+#tabbrowser-tabs[orient="horizontal"] .tabbrowser-tab:is(
+  [visuallyselected],
+  #pinned-tabs-container > :first-child,
+  #pinned-tabs-container:empty ~ #tabbrowser-arrowscrollbox > :first-child,
+  .tab-group-label-container + *,
+  tab-group[collapsed] + *
+) {
+  --ct-lf: var(--ct-left-fill);
+  --ct-lr: var(--ct-left-ring);
+  --ct-line-start: 0px;
+}
+
+#tabbrowser-tabs[orient="horizontal"] .tabbrowser-tab:not([dragtarget]) {
+  position: relative !important;
+}
+#tabbrowser-tabs[orient="horizontal"] .tabbrowser-tab[visuallyselected]:not([dragtarget]) {
+  z-index: 2 !important;
+}
+
+#tabbrowser-tabs[orient="horizontal"] .tab-stack {
+  height: var(--ct-tab-height) !important;
+}
+
+#tabbrowser-tabs[orient="horizontal"] .tab-background {
+  margin: 0 !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  --ct-tint-now: var(--ct-tint);
+  background-color: var(--toolbox-background-color) !important;
+  background-image: linear-gradient(var(--ct-tint-now), var(--ct-tint-now)), var(--toolbox-background-image) !important;
+  background-repeat: no-repeat, var(--toolbox-background-repeat) !important;
+  background-position: 0 0, var(--toolbox-background-position) !important;
+  background-size: auto, var(--toolbox-background-size) !important;
+  background-attachment: fixed !important;
+  background-origin: padding-box !important;
+  background-clip: border-box !important;
+  mask:
+    var(--ct-lf) left top / 17px 100% no-repeat,
+    linear-gradient(transparent 1px, #000 1px) 17px 0 / calc(100% - 34px) 100% no-repeat,
+    var(--ct-right-fill) right top / 17px 100% no-repeat !important;
+}
+
+#tabbrowser-tabs[orient="horizontal"] .tab-background:-moz-window-inactive {
+  background-color: var(--toolbox-background-color-inactive) !important;
+}
+
+#tabbrowser-tabs[orient="horizontal"] .tabbrowser-tab:hover > .tab-stack > .tab-background:not([selected], [multiselected]) {
+  --ct-tint-now: var(--ct-tint-hover);
+}
+
+#tabbrowser-tabs[orient="horizontal"] .tab-background:is([selected], [multiselected]) {
+  --ct-tint-now: var(--ct-tint-selected);
+}
+
+/* The stroke. It sits on top of the fill; the two masks don't overlap. */
+#tabbrowser-tabs[orient="horizontal"] .tab-stack::after {
+  content: "" !important;
+  grid-area: 1 / 1 !important;
+  pointer-events: none !important;
+  background: var(--ct-stroke) !important;
+  mask:
+    var(--ct-lr) left top / 17px 100% no-repeat,
+    linear-gradient(#000 1px, transparent 1px) 17px 0 / calc(100% - 34px) 100% no-repeat,
+    var(--ct-right-ring) right top / 17px 100% no-repeat !important;
+}
+
+/* Inactive tabs also carry the toolbar's top stroke along their bottom edge
+   (except under the left neighbour, which already drew it there). */
+#tabbrowser-tabs[orient="horizontal"] .tabbrowser-tab:not([visuallyselected]) > .tab-stack::after {
+  mask:
+    var(--ct-lr) left top / 17px 100% no-repeat,
+    linear-gradient(#000 1px, transparent 1px) 17px 0 / calc(100% - 34px) 100% no-repeat,
+    var(--ct-right-ring) right top / 17px 100% no-repeat,
+    linear-gradient(to top, #000 1px, transparent 1px) var(--ct-line-start) 0 / calc(100% - var(--ct-line-start)) 100% no-repeat !important;
+}
+
+#tabbrowser-tabs[orient="horizontal"] .tab-stack:not(:has(> .tab-background[fadein]))::after {
+  visibility: hidden !important;
+}
+
+#tabbrowser-tabs[orient="horizontal"] .tabbrowser-tab[multiselected] > .tab-stack::after {
+  background: var(--focus-outline-color) !important;
+}
+
+/* Keep content out of the endcaps; the neighbouring tab overlaps them. */
+#tabbrowser-tabs[orient="horizontal"] .tab-content {
+  padding-inline: 16px 15px !important;
+}
+#tabbrowser-tabs[orient="horizontal"] .tab-content[pinned] {
+  padding-inline: 19px !important;
+}
+
+/* Close button: Chrome's red hover circle. */
+#tabbrowser-tabs[orient="horizontal"] .tab-close-button {
+  border-radius: 50% !important;
+  outline: none !important;
+}
+#tabbrowser-tabs[orient="horizontal"] .tab-close-button:hover {
+  background-color: #db4437 !important;
+  color: #fff !important;
+  fill: #fff !important;
+}
+#tabbrowser-tabs[orient="horizontal"] .tab-close-button:hover:active {
+  background-color: #a8352a !important;
+}
+
+/* ---- Pinned tabs ---------------------------------------------------------- */
+
+/* Pinned tabs live in their own scroll box. Let the last one keep its full
+   width so the box doesn't clip it, then pull the unpinned tabs back over it. */
+#pinned-tabs-container[orient="horizontal"] > .tabbrowser-tab:last-of-type {
+  margin-inline-end: 0 !important;
+}
+#pinned-tabs-container[orient="horizontal"]:not(:empty) ~ #tabbrowser-arrowscrollbox:not([overflowing]) {
+  margin-inline-start: calc(-1 * var(--ct-overlap)) !important;
+}
+
+/* ---- Tab groups ----------------------------------------------------------- */
+
+#tabbrowser-tabs[orient="horizontal"] .tab-group-label-container {
+  padding-inline-start: var(--ct-overlap) !important;
+  /* Centre the label on the tabs rather than on the whole strip. */
+  padding-top: var(--ct-strip-top) !important;
+}
+
+/* ---- New tab button ------------------------------------------------------- */
+
+#tabbrowser-tabs[orient="horizontal"] #tabs-newtab-button {
+  position: relative !important;
+  align-self: flex-end !important;
+  /* Chrome put the button 5px left of the last tab's right edge (whose
+     overlap margin already pulls us 16px left), 4px above the strip bottom. */
+  margin: 0 0 4px 11px !important;
+  padding: 0 !important;
+  width: 36px !important;
+  height: 18px !important;
+  min-height: 0 !important;
+}
+
+#tabbrowser-tabs[orient="horizontal"] #tabs-newtab-button > .toolbarbutton-icon {
+  width: 36px !important;
+  height: 18px !important;
+  padding: 3px 12px !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  --ct-tint-now: var(--ct-tint);
+  background-color: var(--toolbox-background-color) !important;
+  background-image: linear-gradient(var(--ct-tint-now), var(--ct-tint-now)), var(--toolbox-background-image) !important;
+  background-repeat: no-repeat, var(--toolbox-background-repeat) !important;
+  background-position: 0 0, var(--toolbox-background-position) !important;
+  background-size: auto, var(--toolbox-background-size) !important;
+  background-attachment: fixed !important;
+  mask: var(--ct-newtab-fill) 0 0 / 36px 18px no-repeat !important;
+}
+#tabbrowser-tabs[orient="horizontal"] #tabs-newtab-button > .toolbarbutton-icon:-moz-window-inactive {
+  background-color: var(--toolbox-background-color-inactive) !important;
+}
+#tabbrowser-tabs[orient="horizontal"] #tabs-newtab-button:hover > .toolbarbutton-icon {
+  --ct-tint-now: var(--ct-tint-hover);
+}
+#tabbrowser-tabs[orient="horizontal"] #tabs-newtab-button:hover:active > .toolbarbutton-icon {
+  --ct-tint-now: var(--ct-tint-selected);
+}
+
+#tabbrowser-tabs[orient="horizontal"] #tabs-newtab-button::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  background: var(--ct-stroke) !important;
+  mask: var(--ct-newtab-ring) 0 0 / 36px 18px no-repeat !important;
+}
